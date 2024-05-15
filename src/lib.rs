@@ -4,10 +4,12 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn run(mut reader: impl BufRead, mut writer: impl Write) -> Result<()> {
     let mut line = String::new();
-    reader.read_line(&mut line)?;
-    let line = line.trim();
-    if line == "capabilities" {
-        writer.write_all("push\nfetch\n".as_bytes())?;
+    while reader.read_line(&mut line)? > 0 {
+        let trl = line.trim();
+        if trl.eq("capabilities") {
+            writer.write_all("push\nfetch\n\n".as_bytes())?;
+        }
+        line.clear();
     }
     Ok(())
 }
@@ -34,9 +36,27 @@ mod test {
         run(&mut input, &mut output).unwrap();
         let output = std::str::from_utf8(&output).unwrap();
         let lines: Vec<&str> = output.split('\n').collect();
-        assert_eq!(3, lines.len());
+        assert_eq!(4, lines.len());
         assert_eq!("push", lines[0]);
         assert_eq!("fetch", lines[1]);
         assert_eq!("", lines[2]);
+        assert_eq!("", lines[3]);
+    }
+
+    #[test]
+    fn test_multicommand() {
+        let mut input = "capabilities\ncapabilities\n".as_bytes();
+        let mut output = Vec::new();
+        run(&mut input, &mut output).unwrap();
+        let output = std::str::from_utf8(&output).unwrap();
+        let lines: Vec<&str> = output.split('\n').collect();
+        assert_eq!(7, lines.len());
+        assert_eq!("push", lines[0]);
+        assert_eq!("fetch", lines[1]);
+        assert_eq!("", lines[2]);
+        assert_eq!("push", lines[3]);
+        assert_eq!("fetch", lines[4]);
+        assert_eq!("", lines[5]);
+        assert_eq!("", lines[6]);
     }
 }
